@@ -1,0 +1,40 @@
+<!doctype html>
+<html lang="fr"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>CMI Admin</title><link rel="stylesheet" href="/styles.css"></head>
+<body>
+<header class="topbar"><div class="brand"><span class="brand-cmi">CMI</span> ADMIN</div><a href="index.html">← Site public</a></header>
+<main class="section">
+  <div id="loginBox" class="order-form" style="max-width:500px">
+    <div class="eyebrow">BACK OFFICE</div><h2>Connexion administrateur</h2>
+    <form id="loginForm"><label>Mot de passe<input type="password" name="password" required></label><button class="btn primary">Se connecter</button></form>
+    <div id="loginResult" class="result"></div>
+  </div>
+  <div id="dashboard" style="display:none">
+    <div class="section-head"><div><div class="eyebrow">CRM</div><h2>Tableau de bord</h2></div><button class="btn ghost" onclick="logout()">Déconnexion</button></div>
+    <div id="stats" class="stats"></div>
+    <h2 style="margin-top:50px">Demandes récentes</h2>
+    <div id="orders"></div>
+    <h2 style="margin-top:50px">Clients</h2>
+    <div id="customers"></div>
+  </div>
+</main>
+<script>
+async function api(url,opt={}){const r=await fetch(url,opt);const j=await r.json();if(!r.ok)throw new Error(j.error||"Erreur");return j}
+document.querySelector("#loginForm").addEventListener("submit",async e=>{e.preventDefault();try{await api("/api/admin/login",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(Object.fromEntries(new FormData(e.target)))});showDash()}catch(err){document.querySelector("#loginResult").textContent=err.message}});
+async function showDash(){
+  document.querySelector("#loginBox").style.display="none";document.querySelector("#dashboard").style.display="block";
+  const s=await api("/api/admin/stats");
+  document.querySelector("#stats").innerHTML=Object.entries(s).map(([k,v])=>`<div><strong>${v}</strong><span>${k}</span></div>`).join("");
+  const orders=await api("/api/admin/orders");
+  document.querySelector("#orders").innerHTML=`<div style="overflow:auto"><table style="width:100%;border-collapse:collapse;background:#fff"><tr><th>Client</th><th>Contact</th><th>Type</th><th>Produits</th><th>Statut</th><th>Date</th><th>AI email</th></tr>${orders.map(o=>`<tr><td>${esc(o.name)}</td><td>${esc(o.email||o.phone||"")}</td><td>${esc(o.order_type)}</td><td>${esc(JSON.parse(o.items_json).join(", "))}</td><td>${esc(o.status)}</td><td>${esc(o.created_at)}</td><td>${o.email?`<button class="btn ghost" onclick="aiEmail(${o.customer_id})">Générer / envoyer</button>`:"—"}</td></tr>`).join("")}</table></div>`;
+  const customers=await api("/api/admin/customers");
+  document.querySelector("#customers").innerHTML=`<div style="overflow:auto"><table style="width:100%;border-collapse:collapse;background:#fff"><tr><th>Nom</th><th>Email</th><th>Téléphone</th><th>Entreprise</th><th>Ville</th><th>Créé</th></tr>${customers.map(c=>`<tr><td>${esc(c.name)}</td><td>${esc(c.email||"")}</td><td>${esc(c.phone||"")}</td><td>${esc(c.company||"")}</td><td>${esc(c.city||"")}</td><td>${esc(c.created_at)}</td></tr>`).join("")}</table></div>`;
+}
+async function aiEmail(id){
+  const goal=prompt("Objectif du message (ex: suivi de demande de devis) :");if(!goal)return;
+  const r=await api("/api/admin/ai-email",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({customerId:id,goal})});
+  alert((r.status==="sent"?"Email envoyé.":"Brouillon créé — configurez SMTP pour l'envoi automatique.")+"\\n\\nSujet: "+r.subject+"\\n\\n"+r.body);
+}
+async function logout(){await api("/api/admin/logout",{method:"POST"});location.reload()}
+function esc(s){return String(s??"").replace(/[&<>"']/g,m=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#039;"}[m]))}
+</script>
+</body></html>
