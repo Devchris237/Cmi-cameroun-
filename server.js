@@ -284,7 +284,7 @@ Write a subject and body. Do not invent prices, stock, dates, promises, or polic
   }
 });
 
-app.get("*", (req, res) => {
+app.get("/{*splat}", (req, res) => {
   res.sendFile(path.join(__dirname, "public", "index.html"));
 });
 
